@@ -1,27 +1,76 @@
+
+# OmniBrain - PDF Ingestion Engine
+
+
 # Python
+
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+
 
 # Virtual Environment
+
 .env
+.venv/
+venv/
+env/
 
-# Logs
-logs/
-
-# Data Outputs
-data/processed/
-data/outputs/
 
 # IDE
+
 .vscode/
+.idea/
 
-# Pytest
-.pytest_cache/
 
-# Jupyter
-.ipynb_checkpoints/
+# Operating System Files
 
-# OS
 .DS_Store
 Thumbs.db
+
+
+# Logs
+
+logs/
+*.log
+
+
+# Python Test Cache
+
+.pytest_cache/
+.coverage
+htmlcov/
+
+
+# Jupyter
+
+.ipynb_checkpoints/
+
+
+# Build Files
+
+build/
+dist/
+*.egg-info/
+
+
+# Generated Outputs
+
+data/processed/
+data/temp/
+
+
+# Reports (Generated)
+
+reports/
+
+
+# Temporary Files
+
+*.tmp
+*.temp
+
+
+# Python Environment Files
+
+.python-version
