@@ -1,12 +1,13 @@
 """
+
+OmniBrain - PDF Ingestion Engine
+
 Module: Ingestion Pipeline
 
 Purpose:
     Orchestrates the complete PDF ingestion workflow.
 
 """
-
-from pathlib import Path
 
 from configs.settings import Settings
 
@@ -34,29 +35,33 @@ class IngestionPipeline:
         )
 
         if not pdf_files:
-            print("No PDF found.")
+            print("No PDF found inside data/input/pdfs")
             return
 
         if len(pdf_files) > 1:
             print("Multiple PDFs found.")
-            print("Keep only one PDF for now.")
+            print("Please keep only one PDF inside data/input/pdfs")
             return
 
         pdf_path = pdf_files[0]
 
-        print("=" * 60)
+        print("\n" + "=" * 60)
         print("          OMNIBRAIN PDF INGESTION")
         print("=" * 60)
+
+        
+        # Open PDF
+        
 
         reader = PDFReader(pdf_path)
 
         document = reader.open()
 
-        print(f"\nOpened : {pdf_path.name}")
-        print(f"Pages  : {reader.page_count}")
+        print(f"\nOpened PDF : {pdf_path.name}")
+        print(f"Pages      : {reader.page_count}")
 
         
-        # Metadata
+        # Metadata Extraction
         
 
         metadata = MetadataExtractor(
@@ -68,10 +73,10 @@ class IngestionPipeline:
 
         metadata.save(metadata_data)
 
-        print("✓ Metadata Extracted")
+        print("Metadata Extracted")
 
         
-        # Text
+        # Text Extraction (with OCR fallback)
         
 
         text = TextExtractor(
@@ -83,11 +88,19 @@ class IngestionPipeline:
 
         text.save(text_data)
 
-        print("Text Extracted")
+        print(
+            f"Text Extracted "
+            f"({text_data['page_count']} pages)"
+        )
 
-        # ------------------------------------------
-        # Images
-        # ------------------------------------------
+        print(
+            f"OCR Pages : "
+            f"{text_data['ocr_pages']}"
+        )
+
+        
+        # Image Extraction
+        
 
         images = ImageExtractor(
             pdf_path,
@@ -101,9 +114,9 @@ class IngestionPipeline:
             f"{image_data['unique_images']}"
         )
 
-        # ------------------------------------------
-        # Tables
-        # ------------------------------------------
+        
+        # Table Extraction
+        
 
         tables = TableExtractor(pdf_path)
 
@@ -114,9 +127,9 @@ class IngestionPipeline:
             f"{table_data['count']}"
         )
 
-        # ------------------------------------------
-        # Report
-        # ------------------------------------------
+        
+        # Report Generation
+        
 
         report = ReportGenerator(pdf_path)
 
@@ -131,6 +144,12 @@ class IngestionPipeline:
 
         print("Report Generated")
 
+        
+        # Close PDF
+        
+
         reader.close()
 
-        print("\nPipeline Completed Successfully.")
+        
+        print(" Pipeline Completed Successfully")
+        

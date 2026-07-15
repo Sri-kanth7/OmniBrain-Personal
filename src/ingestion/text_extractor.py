@@ -5,14 +5,8 @@ OmniBrain - PDF Ingestion Engine
 Module: Text Extractor
 
 Purpose:
-    Extract textual content from PDF documents using
-    PyMuPDF.
-
-Responsibilities:
-    - Page-wise extraction
-    - Empty page detection
-    - Text statistics
-    - Save extracted text
+    Extract searchable text from PDF documents using
+    PyMuPDF with automatic OCR fallback.
 
 """
 
@@ -23,30 +17,36 @@ from pathlib import Path
 import fitz
 
 from configs.settings import Settings
+from src.ingestion.ocr import OCRExtractor
 
 
 class TextExtractor:
     """
-    Extracts searchable text from a PDF document.
+    Extract searchable text from a PDF.
+
+    Workflow:
+        1. Try native PyMuPDF extraction.
+        2. If little/no text is found, use OCR.
+        3. Save unified text output.
     """
 
-    def __init__(self, pdf_path: Path, document: fitz.Document) -> None:
+    def __init__(
+        self,
+        pdf_path: Path,
+        document: fitz.Document,
+    ) -> None:
+
         self.pdf_path = Path(pdf_path)
         self.document = document
+
+        # Lazy-loaded OCR service
+        self.ocr = None
 
     
     # Extraction
     
 
     def extract(self) -> dict:
-        """
-        Extract text page by page.
-
-        Returns
-        -------
-        dict
-            Extraction result.
-        """
 
         pages = []
 
@@ -54,41 +54,105 @@ class TextExtractor:
 
         empty_pages = []
 
-        for page_number, page in enumerate(self.document, start=1):
+        ocr_pages = 0
+
+        for page_number in range(self.document.page_count):
+
+            page = self.document.load_page(page_number)
+
+            
+            # Native text extraction
+            
 
             text = page.get_text("text").strip()
 
-            if not text:
-                empty_pages.append(page_number)
+            print(
+                f"[DEBUG] Page {page_number + 1}: "
+                f"Native Characters = {len(text)}"
+            )
+
+            
+            # OCR Fallback
+            
+
+            if len(text) < Settings.OCR_THRESHOLD:
+
+                print(
+                    f"[INFO] OCR triggered on page {page_number + 1}"
+                )
+
+                if self.ocr is None:
+
+                    print(
+                        "[INFO] Initializing OCR Engine..."
+                    )
+
+                    self.ocr = OCRExtractor()
+
+                try:
+
+                    ocr_text = self.ocr.extract_page(page)
+
+                    if ocr_text.strip():
+
+                        text = ocr_text
+
+                        ocr_pages += 1
+
+                except Exception as error:
+
+                    print(
+                        f"[WARNING] OCR failed on page "
+                        f"{page_number + 1}: {error}"
+                    )
+
+            
+            # Empty page
+            
+
+            if not text.strip():
+
+                empty_pages.append(page_number + 1)
 
             total_characters += len(text)
 
             pages.append(
                 {
-                    "page": page_number,
+                    "page": page_number + 1,
                     "text": text,
                 }
             )
 
+            print(
+                f"[DEBUG] Saved page {page_number + 1}"
+            )
+
+        print(
+            f"[DEBUG] Total Pages Saved = {len(pages)}"
+        )
+
         return {
+
             "pages": pages,
+
             "page_count": len(pages),
+
             "empty_pages": empty_pages,
+
+            "ocr_pages": ocr_pages,
+
             "total_characters": total_characters,
+
         }
 
     
     # Save
     
 
-    def save(self, extraction_result: dict) -> Path:
-        """
-        Save extracted text.
-
-        Returns
-        -------
-        Path
-        """
+    def save(
+        self,
+        extraction_result: dict,
+    ) -> Path:
 
         output_file = (
             Settings.TEXT_DIR

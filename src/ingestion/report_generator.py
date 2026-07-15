@@ -1,4 +1,7 @@
 """
+
+OmniBrain - PDF Ingestion Engine
+
 Module: Report Generator
 
 Purpose:
@@ -18,10 +21,14 @@ from configs.settings import Settings
 
 class ReportGenerator:
     """
-    Generate a PDF ingestion report.
+    Generate a structured PDF ingestion report.
     """
 
-    def __init__(self, pdf_path: Path) -> None:
+    def __init__(
+        self,
+        pdf_path: Path,
+    ) -> None:
+
         self.pdf_path = Path(pdf_path)
 
     def generate(
@@ -36,16 +43,47 @@ class ReportGenerator:
         """
 
         report = {
+
             "document": self.pdf_path.name,
+
             "generated_at": datetime.now().isoformat(),
+
+            "status": "SUCCESS",
+
             "metadata": metadata,
+
             "summary": {
+
                 "pages": metadata["pages"],
+
                 "characters": text["total_characters"],
-                "empty_pages": len(text["empty_pages"]),
+
+                "empty_pages": len(
+                    text["empty_pages"]
+                ),
+
+                "ocr_pages": text["ocr_pages"],
+
                 "images": images["unique_images"],
+
                 "tables": tables["count"],
+
             },
+
+            "processing": {
+
+                "metadata_extracted": True,
+
+                "text_extracted": True,
+
+                "ocr_enabled": True,
+
+                "images_extracted": True,
+
+                "tables_extracted": True,
+
+            },
+
         }
 
         return report
@@ -59,8 +97,8 @@ class ReportGenerator:
         """
 
         output_path = (
-            Settings.REPORT_DIR /
-            f"{self.pdf_path.stem}_report.json"
+            Settings.REPORT_DIR
+            / f"{self.pdf_path.stem}_report.json"
         )
 
         with open(

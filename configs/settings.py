@@ -55,7 +55,13 @@ class Settings:
     # OCR
     
 
-    OCR_LANGUAGE = ["en"]
+    OCR_THRESHOLD = 30
+
+    OCR_DPI = 2.0
+
+    OCR_LANGUAGES = ["en"]
+
+    OCR_GPU = False
 
     
     # Image Extraction
