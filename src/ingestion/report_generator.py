@@ -1,12 +1,10 @@
 """
-
 OmniBrain - PDF Ingestion Engine
 
 Module: Report Generator
 
 Purpose:
     Generate a structured ingestion report for every PDF.
-
 """
 
 from __future__ import annotations
@@ -35,6 +33,7 @@ class ReportGenerator:
         self,
         metadata: dict[str, Any],
         text: dict[str, Any],
+        chunks: dict[str, Any],
         images: dict[str, Any],
         tables: dict[str, Any],
     ) -> dict[str, Any]:
@@ -64,17 +63,27 @@ class ReportGenerator:
 
                 "ocr_pages": text["ocr_pages"],
 
+                "chunks": chunks["chunk_count"],
+
                 "images": images["unique_images"],
 
                 "tables": tables["count"],
 
             },
 
+            "chunk_statistics": chunks["statistics"],
+
             "processing": {
 
                 "metadata_extracted": True,
 
                 "text_extracted": True,
+
+                "text_cleaned": True,
+
+                "text_chunked": True,
+
+                "chunk_validation": True,
 
                 "ocr_enabled": True,
 

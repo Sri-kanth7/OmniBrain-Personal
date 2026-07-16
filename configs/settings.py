@@ -3,6 +3,7 @@
 OmniBrain - PDF Ingestion Engine
 
 File: settings.py
+
 Purpose:
     Centralized configuration for project paths and settings.
 
@@ -12,7 +13,9 @@ from pathlib import Path
 
 
 class Settings:
-    """Application configuration."""
+    """
+    Application configuration.
+    """
 
     
     # Project Root
@@ -36,6 +39,7 @@ class Settings:
     TABLE_DIR = PROCESSED_DIR / "tables"
     METADATA_DIR = PROCESSED_DIR / "metadata"
     REPORT_DIR = PROCESSED_DIR / "reports"
+    CHUNK_OUTPUT_DIR = PROCESSED_DIR / "chunks"
 
     TEMP_DIR = DATA_DIR / "temp"
 
@@ -52,7 +56,7 @@ class Settings:
     SUPPORTED_EXTENSIONS = [".pdf"]
 
     
-    # OCR
+    # OCR Configuration
     
 
     OCR_THRESHOLD = 30
@@ -70,14 +74,33 @@ class Settings:
     IMAGE_FORMAT = "png"
 
     
+    # Chunking Configuration
+    
+
+    CHUNK_SIZE = 1000
+
+    CHUNK_OVERLAP = 200
+
+    MIN_CHUNK_SIZE = 150
+
+    MAX_CHUNK_SIZE = 1200
+
+    CHUNK_SEPARATORS = [
+        "\n\n",
+        "\n",
+        ". ",
+        " ",
+        "",
+    ]
+
+    
     # Utility Methods
     
 
     @classmethod
     def create_directories(cls) -> None:
         """
-        Create all required project directories
-        if they do not already exist.
+        Create all required project directories.
         """
 
         directories = [
@@ -87,9 +110,13 @@ class Settings:
             cls.TABLE_DIR,
             cls.METADATA_DIR,
             cls.REPORT_DIR,
+            cls.CHUNK_OUTPUT_DIR,
             cls.TEMP_DIR,
             cls.LOG_DIR,
         ]
 
         for directory in directories:
-            directory.mkdir(parents=True, exist_ok=True)
+            directory.mkdir(
+                parents=True,
+                exist_ok=True,
+            )

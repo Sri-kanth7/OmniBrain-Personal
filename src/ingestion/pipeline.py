@@ -1,12 +1,10 @@
 """
-
 OmniBrain - PDF Ingestion Engine
 
 Module: Ingestion Pipeline
 
 Purpose:
     Orchestrates the complete PDF ingestion workflow.
-
 """
 
 from configs.settings import Settings
@@ -17,6 +15,11 @@ from src.ingestion.text_extractor import TextExtractor
 from src.ingestion.image_extractor import ImageExtractor
 from src.ingestion.table_extractor import TableExtractor
 from src.ingestion.report_generator import ReportGenerator
+
+from src.preprocessing.cleaner import TextCleaner
+
+from src.chunking.text_chunker import TextChunker
+from src.chunking.validator import ChunkValidator
 
 
 class IngestionPipeline:
@@ -49,9 +52,7 @@ class IngestionPipeline:
         print("          OMNIBRAIN PDF INGESTION")
         print("=" * 60)
 
-        
         # Open PDF
-        
 
         reader = PDFReader(pdf_path)
 
@@ -60,9 +61,7 @@ class IngestionPipeline:
         print(f"\nOpened PDF : {pdf_path.name}")
         print(f"Pages      : {reader.page_count}")
 
-        
         # Metadata Extraction
-        
 
         metadata = MetadataExtractor(
             pdf_path,
@@ -75,9 +74,7 @@ class IngestionPipeline:
 
         print("Metadata Extracted")
 
-        
-        # Text Extraction (with OCR fallback)
-        
+        # Text Extraction
 
         text = TextExtractor(
             pdf_path,
@@ -98,9 +95,47 @@ class IngestionPipeline:
             f"{text_data['ocr_pages']}"
         )
 
-        
+        # Text Cleaning
+
+        cleaner = TextCleaner()
+
+        for page in text_data["pages"]:
+
+            page["text"] = cleaner.clean(
+                page["text"]
+            )
+
+        print("Text Cleaned")
+
+        # Text Chunking
+
+        chunker = TextChunker(pdf_path)
+
+        chunk_data = chunker.chunk(
+            text_data
+        )
+
+        print(
+            f"Chunks Generated : "
+            f"{chunk_data['chunk_count']}"
+        )
+
+        # Chunk Validation
+
+        validator = ChunkValidator()
+
+        chunk_data = validator.validate(
+            chunk_data
+        )
+
+        chunker.save(chunk_data)
+
+        print(
+            f"Valid Chunks : "
+            f"{chunk_data['chunk_count']}"
+        )
+
         # Image Extraction
-        
 
         images = ImageExtractor(
             pdf_path,
@@ -114,9 +149,7 @@ class IngestionPipeline:
             f"{image_data['unique_images']}"
         )
 
-        
         # Table Extraction
-        
 
         tables = TableExtractor(pdf_path)
 
@@ -127,9 +160,7 @@ class IngestionPipeline:
             f"{table_data['count']}"
         )
 
-        
         # Report Generation
-        
 
         report = ReportGenerator(pdf_path)
 
@@ -137,6 +168,7 @@ class IngestionPipeline:
             metadata=metadata_data,
             text=text_data,
             images=image_data,
+            chunks=chunk_data,
             tables=table_data,
         )
 
@@ -144,12 +176,8 @@ class IngestionPipeline:
 
         print("Report Generated")
 
-        
         # Close PDF
-        
 
         reader.close()
 
-        
-        print(" Pipeline Completed Successfully")
-        
+        print("\nPipeline Completed Successfully")
