@@ -3,14 +3,22 @@ OmniBrain Configuration
 
 Centralized application settings for project paths,
 OCR, chunking, embeddings, vector database,
-retrieval, and logging.
+retrieval, logging, and hardware configuration.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
+
+import torch
 
 
 class Settings:
     """Application configuration."""
+
+    # ==========================================================
+    # Project Paths
+    # ==========================================================
 
     PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -38,19 +46,58 @@ class Settings:
     LOG_FILE = LOG_DIR / "omnibrain.log"
     LOG_LEVEL = "INFO"
 
+    # ==========================================================
+    # Hardware Configuration
+    # ==========================================================
+
+    USE_GPU = torch.cuda.is_available()
+
+    DEVICE = "cuda" if USE_GPU else "cpu"
+
+    GPU_NAME = (
+        torch.cuda.get_device_name(0)
+        if USE_GPU
+        else "CPU"
+    )
+
+    # Module-specific devices
+    OCR_DEVICE = DEVICE
+    EMBEDDING_DEVICE = DEVICE
+    RERANKER_DEVICE = DEVICE
+    VISION_DEVICE = DEVICE
+    LLM_DEVICE = DEVICE
+
+    OCR_GPU = USE_GPU
+
+    # ==========================================================
+    # Supported Files
+    # ==========================================================
+
     SUPPORTED_EXTENSIONS = [
         ".pdf",
     ]
 
+    # ==========================================================
+    # OCR Configuration
+    # ==========================================================
+
     OCR_THRESHOLD = 30
     OCR_DPI = 2.0
     OCR_LANGUAGES = ["en"]
-    OCR_GPU = False
+
+    # ==========================================================
+    # Image Extraction
+    # ==========================================================
 
     IMAGE_FORMAT = "png"
 
+    # ==========================================================
+    # Chunking Configuration
+    # ==========================================================
+
     CHUNK_SIZE = 1000
     CHUNK_OVERLAP = 200
+
     MIN_CHUNK_SIZE = 150
     MAX_CHUNK_SIZE = 1200
 
@@ -62,27 +109,54 @@ class Settings:
         "",
     ]
 
+    # ==========================================================
+    # Embedding Configuration
+    # ==========================================================
+
     EMBEDDING_MODEL = "BAAI/bge-base-en-v1.5"
-    EMBEDDING_DEVICE = "cpu"
+
+    EMBEDDING_DEVICE = DEVICE
+
     EMBEDDING_BATCH_SIZE = 32
+
     NORMALIZE_EMBEDDINGS = True
+
     VECTOR_DIMENSION = 768
+
     EMBEDDING_FILE = "embeddings.json"
+
+    # ==========================================================
+    # Vector Database
+    # ==========================================================
 
     VECTOR_DB_MODE = "local"
 
     QDRANT_HOST = "localhost"
     QDRANT_PORT = 6333
+
     QDRANT_COLLECTION = "omnibrain_documents"
 
     DISTANCE_METRIC = "Cosine"
+
     QDRANT_BATCH_SIZE = 100
+
     RECREATE_COLLECTION = False
 
+    # ==========================================================
+    # Retrieval
+    # ==========================================================
+
     TOP_K_RESULTS = 5
+
     SEARCH_LIMIT = 5
+
     SEARCH_WITH_PAYLOAD = True
+
     SIMILARITY_THRESHOLD = 0.65
+
+    # ==========================================================
+    # Utilities
+    # ==========================================================
 
     @classmethod
     def create_directories(cls) -> None:
@@ -108,3 +182,12 @@ class Settings:
                 parents=True,
                 exist_ok=True,
             )
+
+    @classmethod
+    def print_device_info(cls) -> None:
+        """Display the active inference device."""
+
+        print("\nHardware Configuration")
+        print("-" * 30)
+        print(f"Device : {cls.DEVICE}")
+        print(f"GPU    : {cls.GPU_NAME}")

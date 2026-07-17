@@ -1,17 +1,20 @@
 """
-
 OmniBrain - PDF Ingestion Engine
 
 Module: OCR Extractor
 
 Purpose:
     OCR service used as a fallback for scanned PDF pages.
-
 """
 
-from PIL import Image
-import easyocr
+from __future__ import annotations
+
+from typing import Sequence
+
 import fitz
+import torch
+import easyocr
+from PIL import Image
 
 from configs.settings import Settings
 
@@ -20,21 +23,40 @@ class OCRExtractor:
     """
     OCR service for scanned PDF pages.
 
-    This class is intentionally designed to process
-    ONE page at a time.
-
+    This class processes one PDF page at a time.
     The TextExtractor decides when OCR is required.
     """
 
     def __init__(
         self,
-        languages: list[str] | None = None,
-        gpu: bool = False,
-    ):
+        languages: Sequence[str] | None = None,
+        gpu: bool | None = None,
+    ) -> None:
+        """
+        Initialize the OCR engine.
+
+        Args:
+            languages:
+                OCR language list. Defaults to Settings.OCR_LANGUAGES.
+
+            gpu:
+                Optional GPU override.
+                If None, Settings.OCR_GPU is used.
+        """
+
+        self.languages = list(
+            languages or Settings.OCR_LANGUAGES
+        )
+
+        self.use_gpu = (
+            Settings.OCR_GPU
+            if gpu is None
+            else gpu
+        )
 
         self.reader = easyocr.Reader(
-            languages or Settings.OCR_LANGUAGES,
-            gpu=Settings.OCR_GPU,
+            self.languages,
+            gpu=self.use_gpu,
         )
 
     def _page_to_image(
@@ -42,7 +64,7 @@ class OCRExtractor:
         page: fitz.Page,
     ) -> Image.Image:
         """
-        Convert PDF page into a high-resolution image.
+        Convert a PDF page into a high-resolution RGB image.
         """
 
         matrix = fitz.Matrix(
@@ -55,7 +77,7 @@ class OCRExtractor:
             alpha=False,
         )
 
-        image = Image.frombytes(
+        return Image.frombytes(
             "RGB",
             (
                 pixmap.width,
@@ -64,14 +86,16 @@ class OCRExtractor:
             pixmap.samples,
         )
 
-        return image
-
+    @torch.inference_mode()
     def extract_page(
         self,
         page: fitz.Page,
     ) -> str:
         """
-        Perform OCR on a single page.
+        Perform OCR on a single PDF page.
+
+        Returns:
+            Extracted text.
         """
 
         image = self._page_to_image(page)
@@ -82,6 +106,11 @@ class OCRExtractor:
             paragraph=True,
         )
 
-        text = "\n".join(result)
+        if not result:
+            return ""
 
-        return text.strip()
+        return "\n".join(
+            str(line).strip()
+            for line in result
+            if str(line).strip()
+        )

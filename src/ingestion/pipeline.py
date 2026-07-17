@@ -39,6 +39,8 @@ class IngestionPipeline:
 
         Settings.create_directories()
 
+        Settings.print_device_info()
+
     def run(self):
 
         pdf_files = list(
@@ -101,7 +103,8 @@ class IngestionPipeline:
                 pdf_path,
                 text_data,
                 metadata_data,
-            )           
+            )
+                      
             embeddings = self.generate_embeddings(
                 pdf_path
             )
@@ -130,9 +133,9 @@ class IngestionPipeline:
                 table_data,
             )
 
-            print(
-                "\nPipeline Completed Successfully"
-            )
+            print("\n" + "=" * 60)
+            print("Pipeline Completed Successfully")
+            print("=" * 60)
 
         finally:
 
@@ -240,11 +243,12 @@ class IngestionPipeline:
         )
 
         return chunk_data
-        def generate_embeddings(
+
+    def generate_embeddings(
         self,
         pdf_path,
-        ):
-            """
+    ):
+        """
         Generate embeddings from validated chunks.
         """
 

@@ -40,6 +40,23 @@ class QdrantStore:
 
         self.collection_name = Settings.QDRANT_COLLECTION
 
+
+    @staticmethod
+    def _distance_metric() -> Distance:
+        """Return the configured distance metric."""
+
+        mapping = {
+            "Cosine": Distance.COSINE,
+            "Dot": Distance.DOT,
+            "Euclid": Distance.EUCLID,
+            "Manhattan": Distance.MANHATTAN,
+        }
+
+        return mapping.get(
+            Settings.DISTANCE_METRIC,
+            Distance.COSINE,
+        )
+
     def collection_exists(self) -> bool:
         """Return True if the collection exists."""
 
@@ -68,7 +85,7 @@ class QdrantStore:
             collection_name=self.collection_name,
             vectors_config=VectorParams(
                 size=vector_size,
-                distance=Distance.COSINE,
+                distance=self._distance_metric(),
             ),
         )
 
@@ -92,7 +109,7 @@ class QdrantStore:
             collection_name=self.collection_name,
             vectors_config=VectorParams(
                 size=vector_size,
-                distance=Distance.COSINE,
+                distance=self._distance_metric(),
             ),
         )
 
@@ -134,6 +151,8 @@ class QdrantStore:
                 "page_number": item["page_number"],
                 "chunk_index": item["chunk_index"],
                 "text": item["text"],
+                "embedding_model": item["embedding_model"],
+                "dimension": item["dimension"],
             }
 
             point_id = str(
@@ -169,8 +188,17 @@ class QdrantStore:
                 wait=True,
             )
 
+            total_batches = (
+                len(points) + batch_size - 1
+            ) // batch_size
+
+            current_batch = (
+                start // batch_size
+            ) + 1
+
             self.logger.info(
-                f"Uploaded {len(batch)} vectors."
+                f"Uploaded batch {current_batch}/{total_batches} "
+                f"({len(batch)} vectors)"
             )
 
         self.logger.info(
@@ -278,8 +306,10 @@ class QdrantStore:
 
             return True
 
-        except Exception as error:
+        except Exception:
 
-            self.logger.error(error)
+            self.logger.exception(
+                "Qdrant health check failed."
+            )
 
             return False

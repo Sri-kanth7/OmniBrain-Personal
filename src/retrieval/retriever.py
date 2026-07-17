@@ -8,6 +8,8 @@ document chunks from the vector database.
 from __future__ import annotations
 
 import logging
+
+import torch
 from typing import Any
 
 from configs.settings import Settings
@@ -55,11 +57,13 @@ class Retriever:
         Convert a query into an embedding vector.
         """
 
-        vector = self.model.encode(
-            query,
-            normalize_embeddings=Settings.NORMALIZE_EMBEDDINGS,
-            convert_to_numpy=True,
-        )
+        with torch.inference_mode():
+
+            vector = self.model.encode(
+                query,
+                normalize_embeddings=Settings.NORMALIZE_EMBEDDINGS,
+                convert_to_numpy=True,
+            )
 
         return vector.tolist()
 
@@ -88,6 +92,9 @@ class Retriever:
 
         for result in results:
 
+            if result.score < Settings.SIMILARITY_THRESHOLD:
+                continue
+
             payload = result.payload
 
             retrieved.append(
@@ -103,7 +110,7 @@ class Retriever:
             )
 
         self.logger.info(
-            f"Retrieved {len(retrieved)} chunks."
+            f'Query: "{query}" | Retrieved {len(retrieved)} chunks.'
         )
 
         return retrieved

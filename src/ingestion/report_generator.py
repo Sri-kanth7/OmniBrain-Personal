@@ -150,7 +150,7 @@ class ReportGenerator:
                 "provider": "Qdrant",
 
                 "collection":
-                    Settings.COLLECTION_NAME,
+                    Settings.QDRANT_COLLECTION,
 
                 "host":
                     Settings.QDRANT_HOST,
