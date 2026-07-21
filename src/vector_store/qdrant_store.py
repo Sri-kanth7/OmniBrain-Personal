@@ -30,6 +30,9 @@ class QdrantStore:
         self.logger = logging.getLogger(__name__)
         self.client = ClientManager.get_client()
 
+        if Settings.RECREATE_COLLECTION:
+            self._recreate_collections()
+
     @staticmethod
     def _distance_metric() -> Distance:
         mapping = {
@@ -55,6 +58,18 @@ class QdrantStore:
                 distance=self._distance_metric(),
             ),
         )
+
+    def _recreate_collections(self):
+        """Recreate text and image collections when enabled in settings."""
+        for collection in (
+            Settings.QDRANT_COLLECTION,
+            Settings.IMAGE_COLLECTION,
+        ):
+            if self._collection_exists(collection):
+                self.logger.info("Deleting existing collection: %s", collection)
+                self.client.delete_collection(collection)
+
+        self.logger.info("Qdrant collections recreated.")
 
     def upload_embeddings(self, embeddings: list[dict[str, Any]]):
         if not embeddings:
