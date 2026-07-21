@@ -5,7 +5,8 @@ Module:
     Ingestion Pipeline
 
 Purpose:
-    Orchestrates the complete PDF ingestion workflow.
+    Orchestrates the complete PDF ingestion workflow using the new
+    layout-aware chunking pipeline.
 """
 
 from __future__ import annotations
@@ -20,14 +21,15 @@ from src.ingestion.table_extractor import TableExtractor
 from src.ingestion.report_generator import ReportGenerator
 
 from src.preprocessing.cleaner import TextCleaner
-from src.chunking.text_chunker import TextChunker
-from src.chunking.validator import ChunkValidator
+from src.preprocessing.layout.parser import LayoutParser
+
+from src.chunking.layout_chunker import LayoutChunker
 
 from src.embeddings.embedding_generator import EmbeddingGenerator
 from src.embeddings.image_embedding import ImageEmbeddingGenerator
 
 from src.vector_store.qdrant_store import QdrantStore
-from src.preprocessing.layout.parser import LayoutParser
+from src.serialization.chunk_serializer import ChunkSerializer
 
 
 class IngestionPipeline:
@@ -65,21 +67,22 @@ class IngestionPipeline:
             print(f"Pages      : {reader.page_count}")
 
             metadata_data = self.extract_metadata(pdf_path, document)
+
             text_data = self.extract_text(pdf_path, document)
             text_data = self.clean_text(text_data)
 
-            layout_document = self.parse_layout(
-                pdf_path,
-                document,
-            )
+            layout_document = self.parse_layout(pdf_path, document)
 
-            chunk_data = self.generate_chunks(
-                pdf_path,
-                text_data,
-                metadata_data,
-            )
+            # Attach metadata required by LayoutChunker
+            layout_document.metadata["document_id"] = metadata_data["document_id"]
+            layout_document.metadata["source_path"] = str(pdf_path)
 
-            text_embeddings = self.generate_embeddings(pdf_path)
+            chunk_collection = self.generate_chunks(layout_document)
+
+            serializer = ChunkSerializer()
+            chunk_file = serializer.save(chunk_collection)
+
+            text_embeddings = self.generate_embeddings(chunk_file)
             text_vectors_uploaded = self.upload_vectors(text_embeddings)
 
             image_data = self.extract_images(pdf_path, document, metadata_data)
@@ -93,7 +96,7 @@ class IngestionPipeline:
                 pdf_path,
                 metadata_data,
                 text_data,
-                chunk_data,
+                chunk_collection,
                 image_data,
                 table_data,
                 len(text_embeddings),
@@ -126,35 +129,39 @@ class IngestionPipeline:
 
     def clean_text(self, text_data):
         cleaner = TextCleaner()
+
         for page in text_data["pages"]:
             page["text"] = cleaner.clean(page["text"])
+
         print("Text Cleaned")
         return text_data
 
-
     def parse_layout(self, pdf_path, document):
         parser = LayoutParser()
+
         layout_document = parser.parse_document(
             document=document,
             pdf_path=str(pdf_path),
             document_name=pdf_path.stem,
         )
+
         print("Layout Parsed")
         return layout_document
 
-    def generate_chunks(self, pdf_path, text_data, metadata_data):
-        chunker = TextChunker(pdf_path)
-        data = chunker.chunk(text_data=text_data, metadata=metadata_data)
-        print(f"Chunks Generated : {data['chunk_count']}")
-        data = ChunkValidator().validate(data)
-        chunker.save(data)
-        print(f"Valid Chunks : {data['chunk_count']}")
-        return data
+    def generate_chunks(self, layout_document):
+        chunker = LayoutChunker()
 
-    def generate_embeddings(self, pdf_path):
-        chunk_file = Settings.CHUNK_OUTPUT_DIR / f"{pdf_path.stem}_chunks.json"
+        collection = chunker.chunk_document(layout_document)
+
+        print(f"Valid Chunks : {collection.chunk_count}")
+
+        return collection
+
+    def generate_embeddings(self, chunk_file):
         embeddings = EmbeddingGenerator().generate(chunk_file)
+
         print(f"Embeddings Generated : {len(embeddings)}")
+
         return embeddings
 
     def upload_vectors(self, embeddings):
@@ -195,7 +202,7 @@ class IngestionPipeline:
         pdf_path,
         metadata_data,
         text_data,
-        chunk_data,
+        chunk_collection,
         image_data,
         table_data,
         text_embeddings,
@@ -204,10 +211,27 @@ class IngestionPipeline:
         image_vectors_uploaded,
     ):
         report = ReportGenerator(pdf_path)
+
         report_data = report.generate(
             metadata=metadata_data,
             text=text_data,
-            chunks=chunk_data,
+            chunks={
+                "chunk_count": chunk_collection.chunk_count,
+                "statistics": {
+                    "total_chunks": chunk_collection.statistics.total_chunks,
+                    "total_characters": chunk_collection.statistics.total_characters,
+                    "total_words": chunk_collection.statistics.total_words,
+                    "average_chunk_size": chunk_collection.statistics.average_chunk_size,
+                    "smallest_chunk_size": chunk_collection.statistics.smallest_chunk_size,
+                    "largest_chunk_size": chunk_collection.statistics.largest_chunk_size,
+                    "table_chunks": chunk_collection.statistics.table_chunks,
+                    "empty_chunks_removed": chunk_collection.statistics.empty_chunks_removed,
+                    "duplicate_chunks_removed": chunk_collection.statistics.duplicate_chunks_removed,
+                    "integrity_failures_removed": chunk_collection.statistics.integrity_failures_removed,
+                    "oversized_chunks_flagged": chunk_collection.statistics.oversized_chunks_flagged,
+                    "undersized_chunks_flagged": chunk_collection.statistics.undersized_chunks_flagged,
+                },
+            },
             images=image_data,
             tables=table_data,
             text_embeddings=text_embeddings,
@@ -215,5 +239,7 @@ class IngestionPipeline:
             image_embeddings=image_embeddings,
             image_vectors_uploaded=image_vectors_uploaded,
         )
+
         report.save(report_data)
+
         print("Report Generated")
